@@ -1,0 +1,3 @@
+# Build caches for subset_font.py — do not commit (large / regenerable)
+NotoSansJP-VF.ttf
+.venv/
