@@ -6,6 +6,10 @@ import {FetchCatFacts} from "./FetchCatFacts"
 const TEXT_SLEEPING = "むにゃ… おひるね中だにゃ。またあとで来てにゃ！"
 const TEXT_ACTIVE = "にゃー！おかえり！猫の豆知識を話すにゃ！"
 
+// Delay before the thought bubble first fades in. The first fact's text and
+// narration are timed to this so they land as the bubble appears, not before.
+const REVEAL_DELAY_MS = 1500
+
 @component
 export class CatFactAnimator extends BaseScriptComponent {
   @input
@@ -64,6 +68,7 @@ export class CatFactAnimator extends BaseScriptComponent {
   }
 
   private activateCat(fetchFacts: boolean) {
+    const isFirstReveal = !this.catIsActive
     if (!this.catIsActive) {
       this.catIsActive = true
       this.hasBeenActivatedOnce = true
@@ -73,8 +78,18 @@ export class CatFactAnimator extends BaseScriptComponent {
       this.animationStateMachine.setTrigger("stand")
     }
 
-    // Fetch cat facts when interaction is triggered
-    if (fetchFacts) {
+    if (!fetchFacts) {
+      return
+    }
+
+    // On the first reveal the bubble fades in after REVEAL_DELAY_MS. Hold the
+    // fact until then so its text and narration land with the bubble, not before.
+    // Later taps fire immediately — the bubble is already visible.
+    if (isFirstReveal) {
+      LSTween.rawTween(REVEAL_DELAY_MS)
+        .onComplete(() => this.fetchCatFacts.getCatFacts())
+        .start()
+    } else {
       this.fetchCatFacts.getCatFacts()
     }
   }
@@ -84,8 +99,8 @@ export class CatFactAnimator extends BaseScriptComponent {
     if (this.textBubbleIsShown) return
     this.textBubbleIsShown = true
 
-    // Delay the animation for 1.5 seconds
-    LSTween.rawTween(1500)
+    // Delay the reveal so it eases in shortly after the tap.
+    LSTween.rawTween(REVEAL_DELAY_MS)
       .onComplete(() => {
         // Move the thought bubble from bottom to top
         LSTween.moveFromToLocal(
