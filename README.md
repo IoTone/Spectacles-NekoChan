@@ -34,7 +34,9 @@ tap on cat  →  Interactable.onTriggerStart
 | `Assets/Scripts/CatFactAnimator.ts` | Drives the cat animation state machine (sleep/stand), the thought-bubble fade-in, and the nap/wake messages. Listens for `catFactReceived` and updates the Text. |
 | `Assets/Scripts/Events.ts` | Tiny typed pub/sub helper used by the event above. |
 | `Assets/Fonts/NekoChanJP.ttf` | Subsetted Noto Sans JP (~305 KB). Assigned to the thought-bubble Text component. |
+| `Assets/Audio/Facts/fact_XX.mp3` | Optional offline narration, one clip per fact (index-aligned to `CAT_FACTS`). |
 | `tools/subset_font.py` | Regenerates the font subset (see below). |
+| `tools/generate_audio.py` | Regenerates the narration clips (see below). |
 
 ## Editing the facts
 
@@ -64,6 +66,41 @@ weight, subsets to exactly the glyphs used, and writes
 is missing** from the subset. The output path is stable, so Lens Studio keeps the
 same font asset and no scene re-wiring is needed.
 
+## Offline narration (audio)
+
+NekoChan can speak each fact aloud using clips pre-generated with the macOS
+`say` command — fully offline, no experimental APIs. Audio is **optional and
+additive**: if the audio inputs on the `FetchCatFacts` component are left unset,
+the Lens simply shows text silently.
+
+**Regenerate the clips** (after editing `CatFacts.ts`):
+
+```bash
+python3 tools/generate_audio.py
+```
+
+This reads the facts from `CatFacts.ts`, synthesizes each with the
+`Kyoko (Enhanced)` Japanese voice, and writes `Assets/Audio/Facts/fact_00.mp3 …`
+numbered to match `CAT_FACTS`. Requires `ffmpeg` and the Kyoko (Enhanced) voice
+(macOS: System Settings → Accessibility → Spoken Content → Manage Voices).
+
+**Pronunciation:** macOS TTS misreads some proper nouns (e.g. 相島 = *Ainoshima*,
+青島 = *Aoshima*). `generate_audio.py` holds a `READING_SUBSTITUTIONS` map that
+feeds the correct kana to `say` for the spoken track only — the on-screen kanji
+is never changed. Add entries there if you hear a wrong reading, then rerun.
+
+**Wiring in Lens Studio (one-time):** add a **dedicated** `Audio` component to a
+SceneObject (not one shared with meows/SFX, so nothing steps on the narration),
+then on the **FetchCatFacts** component assign it to `Audio Component` and drag
+all `fact_XX.mp3` clips onto the `Fact Audio Tracks` array input **in numeric
+order** (multi-select in the Asset Browser → single drag). The clip index must
+line up with `CAT_FACTS`, which the file numbering guarantees.
+
+**No overlap:** clips never play over each other — a new tip always stops the
+current clip before starting the next. Tick **`Let Clip Finish`** on the
+FetchCatFacts component if you'd rather each tip play fully start-to-finish before
+a tap can advance to the next one (taps are ignored while a clip is speaking).
+
 ## Testing
 
 **In Lens Studio Preview:**
@@ -77,6 +114,18 @@ same font asset and no scene re-wiring is needed.
   works with no connection.
 - Japanese text is crisp and legible at real viewing distance.
 - Physical tap reliably advances facts; no hitching over a long session.
+- If narration is wired up: each tap plays the clip that matches the visible
+  fact, rapid taps don't overlap (the previous clip stops), and place names are
+  pronounced correctly.
+
+## Maintenance loop
+
+After editing facts in `CatFacts.ts`:
+
+1. `python3 tools/subset_font.py` — refresh the font subset (new kanji).
+2. `python3 tools/generate_audio.py` — regenerate narration clips.
+3. In Lens Studio, drag any new `fact_XX.mp3` clips into the `Fact Audio Tracks`
+   input, then reload and test.
 
 ## Credits & licensing
 
